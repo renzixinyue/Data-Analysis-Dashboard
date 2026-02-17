@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学生成绩数据分析可视化大屏</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <!-- ECharts CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>学生成绩数据分析可视化大屏</h1>
+            <div class="date" id="currentDate"></div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="grid-layout">
+            <!-- Left Panel -->
+            <section class="panel left-panel">
+                <div class="card">
+                    <h2>总体概况 (总分分布)</h2>
+                    <div id="scoreDistChart" class="chart-container"></div>
+                </div>
+                <div class="card">
+                    <h2>学科平均分对比</h2>
+                    <div id="subjectAvgChart" class="chart-container"></div>
+                </div>
+            </section>
+
+            <!-- Center Panel (Search & Student Detail) -->
+            <section class="panel center-panel">
+                <div class="search-box">
+                    <input type="text" id="studentSearch" placeholder="输入姓名搜索学生...">
+                    <div id="searchResults" class="search-results"></div>
+                </div>
+
+                <div id="studentDetail" class="student-detail" style="display: none;">
+                    <div class="student-header">
+                        <h2 id="studentName">学生姓名</h2>
+                        <span id="studentClass" class="badge">班级</span>
+                    </div>
+                    
+                    <div class="stats-cards">
+                        <div class="stat-card">
+                            <h3>月考总分</h3>
+                            <p id="monthlyScore">-</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>期中总分</h3>
+                            <p id="midtermScore">-</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>月考联考排名</h3>
+                            <p id="monthlyRank">-</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>期中联考排名</h3>
+                            <p id="midtermRank">-</p>
+                        </div>
+                         <div class="stat-card">
+                            <h3>排名变化</h3>
+                            <p id="rankChange">-</p>
+                        </div>
+                    </div>
+
+                    <div class="card large-card">
+                        <h2>单科联考排名对比 (柱状图)</h2>
+                        <div id="studentSubjectChart" class="chart-container large"></div>
+                    </div>
+                </div>
+                
+                <div id="welcomeMsg" class="welcome-msg">
+                    <p>请在上方搜索框输入学生姓名查看详细对比数据</p>
+                </div>
+            </section>
+
+            <!-- Right Panel -->
+            <section class="panel right-panel">
+                <div class="card">
+                    <h2>班级平均分对比</h2>
+                    <div id="classAvgChart" class="chart-container"></div>
+                </div>
+                <div class="card">
+                    <h2>进步榜 (Top 5)</h2>
+                    <ul id="topImproversList" class="rank-list"></ul>
+                </div>
+                <div class="card">
+                    <h2>退步榜 (Bottom 5)</h2>
+                    <ul id="bottomImproversList" class="rank-list"></ul>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="assets/js/main.js"></script>
+</body>
+</html>

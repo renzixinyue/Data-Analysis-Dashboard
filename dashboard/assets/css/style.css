@@ -1,0 +1,212 @@
+:root {
+    --bg-color: #f8fafc;
+    --panel-bg: #ffffff;
+    --text-color: #1e293b;
+    --accent-color: #3b82f6;
+    --border-color: #cbd5e1;
+    --success-color: #10b981;
+    --danger-color: #ef4444;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.container {
+    padding: 20px;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--border-color);
+}
+
+h1 {
+    margin: 0;
+    font-size: 24px;
+    color: #1e293b;
+    font-weight: 700;
+}
+
+.grid-layout {
+    display: grid;
+    grid-template-columns: 1fr 3.5fr 1fr;
+    gap: 20px;
+    height: calc(100% - 70px);
+}
+
+.panel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.card {
+    background-color: var(--panel-bg);
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #e2e8f0;
+}
+
+.card h2 {
+    margin-top: 0;
+    font-size: 16px;
+    color: #475569;
+    margin-bottom: 10px;
+    font-weight: 600;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 8px;
+}
+
+.chart-container {
+    flex: 1;
+    min-height: 200px;
+}
+
+.search-box {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+#studentSearch {
+    width: 100%;
+    padding: 12px;
+    background-color: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-color);
+    font-size: 16px;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.search-item {
+    padding: 10px;
+    cursor: pointer;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.search-item:hover {
+    background-color: #f1f5f9;
+}
+
+.student-detail {
+    background-color: var(--panel-bg);
+    padding: 20px;
+    border-radius: 8px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e2e8f0;
+}
+
+.student-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.badge {
+    background-color: var(--accent-color);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 14px;
+    color: white;
+    font-weight: 600;
+}
+
+.stats-cards {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.stat-card {
+    background-color: #f8fafc;
+    padding: 10px;
+    border-radius: 6px;
+    text-align: center;
+    border: 1px solid #e2e8f0;
+}
+
+.stat-card h3 {
+    margin: 0;
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 600;
+}
+
+.stat-card p {
+    margin: 5px 0 0;
+    font-size: 18px;
+    font-weight: bold;
+    color: #0f172a;
+}
+
+.rank-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.rank-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.rank-item span:last-child {
+    font-weight: bold;
+}
+
+.positive { color: var(--danger-color); font-weight: bold; } /* Rise = Red */
+.negative { color: var(--success-color); font-weight: bold; } /* Fall = Green */
+
+.welcome-msg {
+    text-align: center;
+    padding-top: 100px;
+    color: #64748b;
+}
+
+.large-card {
+    flex: 2;
+    margin-top: 20px;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+}

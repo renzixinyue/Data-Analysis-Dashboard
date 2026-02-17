@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Excel temporary files
+~$*.xlsx
+
+# Trae
+.trae/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Project specific
+# analysis_result.xlsx # Generated file, maybe keep or exclude? Usually exclude generated data.
+# But for this demo, user might want to see the result. Let's keep it unless very large.
