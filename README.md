@@ -10,7 +10,7 @@
 *   `analyze_data_full.py`: 数据清洗与分析脚本
 *   `export_data_to_json.py`: 将分析结果导出为 Web 端可用的 JSON 数据
 *   `dashboard/`: 大屏前端代码目录
-    *   `dashboard.html`: 大屏主页
+    *   `index.html`: 大屏主页（Web 端入口，原 dashboard.html）
     *   `data.json`: 数据文件
     *   `assets/`: 静态资源（CSS, JS）
 
@@ -19,7 +19,7 @@
 ### 方法一：使用一键脚本（推荐）
 
 1.  **启动大屏**：双击运行 `start_dashboard.bat`。
-    *   会自动启动一个本地服务器，并提示您在浏览器打开 `http://localhost:8000/dashboard.html`。
+    *   会自动启动一个本地服务器，并提示您在浏览器打开 `http://localhost:8000/`。
 2.  **更新数据**：如果您替换了 Excel 源文件，请双击运行 `update_data.bat`。
     *   会自动重新计算分析结果并更新大屏数据。
 
@@ -42,7 +42,7 @@
     cd dashboard
     python -m http.server 8000
     ```
-    然后在浏览器访问：[http://localhost:8000/dashboard.html](http://localhost:8000/dashboard.html)
+    然后在浏览器访问：[http://localhost:8000/](http://localhost:8000/)
 
 ## ⚠️ 注意事项
 
