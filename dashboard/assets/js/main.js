@@ -1,4 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Auth Check inside main app logic as well
+    if (!window.Auth.check()) return;
+
     // 1. Load Data
     fetch('data.json')
         .then(response => response.json())
