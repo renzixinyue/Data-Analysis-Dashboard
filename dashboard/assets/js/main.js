@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     if (!window.Auth.check()) return;
+    setupModalActions();
 
     fetch('data.json')
         .then(response => response.json())
@@ -8,7 +9,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 const chartColors = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'];
+const SUBJECT_ORDER = ['语文', '数学', '英语', '道德与法治', '历史', '地理', '生物'];
 let appData = null;
+const chartInstances = {};
+let modalChart = null;
 
 function initDashboard(data) {
     appData = data;
@@ -44,6 +48,7 @@ function getBins(scoreMap) {
 
 function renderScoreDistributionChart(data) {
     const chart = echarts.init(document.getElementById('scoreDistChart'));
+    chartInstances.scoreDistChart = chart;
     const distributions = data.global_stats.score_distribution || {};
     const bins = getBins(distributions);
     const labels = bins.slice(0, -1).map((b, i) => `${b}-${bins[i + 1]}`);
@@ -70,20 +75,31 @@ function renderScoreDistributionChart(data) {
 
 function renderSubjectRadarChart(data) {
     const chart = echarts.init(document.getElementById('subjectAvgChart'));
+    chartInstances.subjectAvgChart = chart;
     const grouped = {};
     data.subject_stats.forEach(item => {
         if (!grouped[item.subject]) grouped[item.subject] = {};
         grouped[item.subject][item.exam_key] = item.avg_score;
     });
 
-    const subjects = Object.keys(grouped);
+    const subjects = getOrderedSubjectNames(Object.keys(grouped));
     const maxScore = Math.max(
         ...data.subject_stats.map(item => Number(item.avg_score) || 0),
         100
     );
 
     chart.setOption({
-        tooltip: { backgroundColor: 'rgba(255,255,255,0.95)', textStyle: { color: '#333' } },
+        tooltip: {
+            backgroundColor: 'rgba(255,255,255,0.95)',
+            textStyle: { color: '#333' },
+            formatter: params => {
+                const values = Array.isArray(params.value) ? params.value : [];
+                const details = subjects
+                    .map((subject, index) => `${subject}: ${formatFixed(values[index], 2)}`)
+                    .join('<br/>');
+                return `${params.marker}${params.seriesName}<br/>${details}`;
+            }
+        },
         legend: { data: data.exams.map(item => item.exam_name), textStyle: { color: '#333' } },
         radar: {
             indicator: subjects.map(subject => ({ name: subject, max: Math.ceil(maxScore / 10) * 10 })),
@@ -108,16 +124,17 @@ function renderSubjectRadarChart(data) {
 
 function renderClassChart(data) {
     const chart = echarts.init(document.getElementById('classAvgChart'));
-    const classes = [...new Set(data.class_stats.map(item => item.class_name))].sort((a, b) => String(a).localeCompare(String(b), 'zh-CN'));
+    chartInstances.classAvgChart = chart;
+    const classes = [...new Set(data.class_stats.map(item => item.class_name))].sort(compareClassNames);
     const series = data.exams.map((exam, index) => ({
         name: exam.exam_name,
         type: 'bar',
         itemStyle: { color: chartColors[index % chartColors.length] },
         label: {
-            show: classes.length <= 12,
+            show: true,
             position: 'top',
             color: '#333',
-            formatter: params => params.value == null ? '' : Number(params.value).toFixed(1)
+            formatter: params => params.value == null ? '' : formatFixed(params.value, 2)
         },
         data: classes.map(className => {
             const found = data.class_stats.find(item => item.exam_key === exam.exam_key && item.class_name === className);
@@ -126,7 +143,18 @@ function renderClassChart(data) {
     }));
 
     chart.setOption({
-        tooltip: { trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.95)', textStyle: { color: '#333' } },
+        tooltip: {
+            trigger: 'axis',
+            backgroundColor: 'rgba(255,255,255,0.95)',
+            textStyle: { color: '#333' },
+            formatter: params => {
+                let html = `${params[0].axisValue}<br/>`;
+                params.forEach(param => {
+                    html += `${param.marker}${param.seriesName}: ${formatFixed(param.value, 2)}<br/>`;
+                });
+                return html;
+            }
+        },
         legend: { data: data.exams.map(item => item.exam_name), textStyle: { color: '#333' } },
         grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
         dataZoom: [
@@ -163,6 +191,8 @@ function updateRankListTitles(windowInfo) {
 
 function renderRankList(elementId, list) {
     const ul = document.getElementById(elementId);
+    ul.dataset.rankMode = elementId === 'topImproversList' ? 'positive' : 'negative';
+    ul.onclick = () => openRankModal(ul.dataset.rankMode);
     ul.innerHTML = '';
     if (!list || list.length === 0) {
         ul.innerHTML = '<li class="rank-item">暂无数据</li>';
@@ -244,48 +274,25 @@ function renderStudentSubjectChart(student, windowInfo) {
     let chart = echarts.getInstanceByDom(chartDom);
     if (chart) chart.dispose();
     chart = echarts.init(chartDom);
-
-    const categories = ['总排名', ...student.subjects.map(item => item.name)];
+    const orderedSubjects = getOrderedStudentSubjects(student);
+    const categories = ['总分', ...orderedSubjects.map(item => item.name)];
     const series = appData.exams.map((exam, examIndex) => {
-        const data = [];
-        const totalStat = student.exam_stats.find(item => item.exam_key === exam.exam_key);
-        data.push(totalStat?.total_joint_rank ?? null);
-
-        student.subjects.forEach(subject => {
-            const stat = subject.exam_stats.find(item => item.exam_key === exam.exam_key);
-            data.push(stat?.joint_rank ?? null);
-        });
-
+        const data = buildStudentBarData(student, orderedSubjects, exam.exam_key, windowInfo, examIndex);
         const isLatest = exam.exam_key === windowInfo.to_exam_key;
-        const prevKey = windowInfo.from_exam_key;
-
-        if (isLatest) {
-            const coloredData = data.map((value, idx) => {
-                const prevValue = idx === 0
-                    ? (student.exam_stats.find(item => item.exam_key === prevKey)?.total_joint_rank ?? null)
-                    : (student.subjects[idx - 1].exam_stats.find(item => item.exam_key === prevKey)?.joint_rank ?? null);
-                const change = prevValue != null && value != null ? prevValue - value : 0;
-                return {
-                    value,
-                    itemStyle: {
-                        color: change > 0 ? '#ef4444' : (change < 0 ? '#10b981' : chartColors[examIndex % chartColors.length])
-                    }
-                };
-            });
-            return {
-                name: `${exam.exam_name} (红升绿降)`,
-                type: 'bar',
-                data: coloredData,
-                label: { show: true, position: 'top', color: '#333' }
-            };
-        }
-
         return {
-            name: exam.exam_name,
+            name: isLatest ? `${exam.exam_name} (红升绿降)` : exam.exam_name,
             type: 'bar',
-            itemStyle: { color: chartColors[examIndex % chartColors.length] },
             data,
-            label: { show: false }
+            itemStyle: { color: chartColors[examIndex % chartColors.length] },
+            label: {
+                show: true,
+                position: 'top',
+                color: '#333',
+                formatter: params => {
+                    const rank = typeof params.value === 'object' ? params.value.value : params.value;
+                    return rank == null ? '' : `${formatValue(rank)}名`;
+                }
+            }
         };
     });
 
@@ -299,16 +306,17 @@ function renderStudentSubjectChart(student, windowInfo) {
                 const idx = params[0].dataIndex;
                 let html = `${params[0].axisValue}<br/>`;
                 params.forEach(param => {
-                    const value = typeof param.value === 'object' ? param.value.value : param.value;
-                    html += `${param.marker}${param.seriesName}: ${formatValue(value)}名<br/>`;
+                    const rank = typeof param.value === 'object' ? param.value.value : param.value;
+                    const score = param.data && typeof param.data === 'object' ? param.data.score : null;
+                    html += `${param.marker}${param.seriesName}: ${formatValue(rank)}名`;
+                    if (score != null) {
+                        html += `，分数 ${formatValue(score)}`;
+                    }
+                    html += '<br/>';
                 });
 
-                const latestValue = idx === 0
-                    ? (student.exam_stats.find(item => item.exam_key === windowInfo.to_exam_key)?.total_joint_rank ?? null)
-                    : (student.subjects[idx - 1].exam_stats.find(item => item.exam_key === windowInfo.to_exam_key)?.joint_rank ?? null);
-                const prevValue = idx === 0
-                    ? (student.exam_stats.find(item => item.exam_key === windowInfo.from_exam_key)?.total_joint_rank ?? null)
-                    : (student.subjects[idx - 1].exam_stats.find(item => item.exam_key === windowInfo.from_exam_key)?.joint_rank ?? null);
+                const latestValue = getRankValueByIndex(student, orderedSubjects, windowInfo.to_exam_key, idx);
+                const prevValue = getRankValueByIndex(student, orderedSubjects, windowInfo.from_exam_key, idx);
                 if (latestValue != null && prevValue != null) {
                     const change = prevValue - latestValue;
                     const label = change > 0 ? '进步' : (change < 0 ? '退步' : '持平');
@@ -347,6 +355,8 @@ function renderStudentSubjectChart(student, windowInfo) {
         },
         series
     });
+
+    window.addEventListener('resize', () => chart.resize());
 }
 
 function formatValue(value) {
@@ -359,4 +369,215 @@ function formatClass(value) {
     if (value == null || value === '') return '-';
     const text = String(value).trim();
     return text.endsWith('班') ? text : `${text}班`;
+}
+
+function formatFixed(value, digits = 2) {
+    if (value == null || value === '') return '-';
+    const num = Number(value);
+    return Number.isFinite(num) ? num.toFixed(digits) : value;
+}
+
+function getOrderedSubjectNames(names) {
+    const nameSet = new Set((names || []).filter(Boolean));
+    const ordered = SUBJECT_ORDER.filter(subject => nameSet.has(subject));
+    const remaining = [...nameSet]
+        .filter(subject => !SUBJECT_ORDER.includes(subject))
+        .sort((a, b) => String(a).localeCompare(String(b), 'zh-CN'));
+    return [...ordered, ...remaining];
+}
+
+function getOrderedStudentSubjects(student) {
+    const subjectMap = new Map((student.subjects || []).map(subject => [subject.name, subject]));
+    return getOrderedSubjectNames((student.subjects || []).map(subject => subject.name))
+        .map(name => subjectMap.get(name))
+        .filter(Boolean);
+}
+
+function compareClassNames(a, b) {
+    const aText = formatClass(a);
+    const bText = formatClass(b);
+    const aMatch = aText.match(/\d+/);
+    const bMatch = bText.match(/\d+/);
+    if (aMatch && bMatch) {
+        return Number(aMatch[0]) - Number(bMatch[0]);
+    }
+    return aText.localeCompare(bText, 'zh-CN');
+}
+
+function buildStudentBarData(student, orderedSubjects, examKey, windowInfo, examIndex) {
+    const entries = [
+        {
+            name: '总分',
+            rank: student.exam_stats.find(item => item.exam_key === examKey)?.total_joint_rank ?? null,
+            score: student.exam_stats.find(item => item.exam_key === examKey)?.total_score ?? null
+        },
+        ...orderedSubjects.map(subject => {
+            const stat = subject.exam_stats.find(item => item.exam_key === examKey);
+            return {
+                name: subject.name,
+                rank: stat?.joint_rank ?? null,
+                score: stat?.score ?? null
+            };
+        })
+    ];
+
+    return entries.map((entry, index) => {
+        const dataItem = {
+            value: entry.rank,
+            score: entry.score
+        };
+
+        if (examKey === windowInfo.to_exam_key) {
+            const previousRank = getRankValueByIndex(student, orderedSubjects, windowInfo.from_exam_key, index);
+            const change = previousRank != null && entry.rank != null ? previousRank - entry.rank : 0;
+            dataItem.itemStyle = {
+                color: change > 0 ? '#ef4444' : (change < 0 ? '#10b981' : chartColors[examIndex % chartColors.length])
+            };
+        }
+
+        return dataItem;
+    });
+}
+
+function getRankValueByIndex(student, orderedSubjects, examKey, index) {
+    if (index === 0) {
+        return student.exam_stats.find(item => item.exam_key === examKey)?.total_joint_rank ?? null;
+    }
+    const subject = orderedSubjects[index - 1];
+    return subject?.exam_stats.find(item => item.exam_key === examKey)?.joint_rank ?? null;
+}
+
+function setupModalActions() {
+    document.querySelectorAll('[data-modal-chart]').forEach(button => {
+        button.addEventListener('click', () => {
+            openChartModal(button.dataset.modalChart, button.dataset.modalTitle || '图表详情');
+        });
+    });
+
+    document.querySelectorAll('[data-rank-mode]').forEach(button => {
+        button.addEventListener('click', () => {
+            openRankModal(button.dataset.rankMode);
+        });
+    });
+
+    const overlay = document.getElementById('modalOverlay');
+    const closeButton = document.getElementById('modalCloseBtn');
+    closeButton.addEventListener('click', closeModal);
+    overlay.addEventListener('click', event => {
+        if (event.target === overlay) {
+            closeModal();
+        }
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+            closeModal();
+        }
+    });
+}
+
+function openChartModal(chartId, title) {
+    const sourceChart = chartInstances[chartId];
+    if (!sourceChart) return;
+
+    const overlay = document.getElementById('modalOverlay');
+    const chartContainer = document.getElementById('modalChartContainer');
+    const detailContainer = document.getElementById('modalDetailContainer');
+    document.getElementById('modalTitle').textContent = title;
+    detailContainer.classList.add('hidden');
+    chartContainer.classList.remove('hidden');
+    detailContainer.innerHTML = '';
+    overlay.classList.remove('hidden');
+
+    if (modalChart) {
+        modalChart.dispose();
+    }
+    modalChart = echarts.init(chartContainer);
+    modalChart.setOption(sourceChart.getOption(), true);
+    requestAnimationFrame(() => modalChart.resize());
+}
+
+function openRankModal(mode) {
+    if (!appData) return;
+
+    const overlay = document.getElementById('modalOverlay');
+    const chartContainer = document.getElementById('modalChartContainer');
+    const detailContainer = document.getElementById('modalDetailContainer');
+    const modeLabel = mode === 'positive' ? '各班进步前五' : '各班退步前五';
+    const windowInfo = appData.comparison_window || {};
+
+    document.getElementById('modalTitle').textContent = `${modeLabel} (${windowInfo.from_exam_name} -> ${windowInfo.to_exam_name})`;
+    chartContainer.classList.add('hidden');
+    detailContainer.classList.remove('hidden');
+    detailContainer.innerHTML = buildRankModalHtml(mode);
+    overlay.classList.remove('hidden');
+
+    if (modalChart) {
+        modalChart.dispose();
+        modalChart = null;
+    }
+}
+
+function buildRankModalHtml(mode) {
+    const grouped = new Map();
+    (appData.students || []).forEach(student => {
+        const className = formatClass(student.class);
+        if (!grouped.has(className)) {
+            grouped.set(className, []);
+        }
+        grouped.get(className).push(student);
+    });
+
+    const classCards = [...grouped.entries()]
+        .sort((a, b) => compareClassNames(a[0], b[0]))
+        .map(([className, students]) => {
+            const filtered = students
+                .filter(student => {
+                    const change = Number(student.latest_rank_change || 0);
+                    return mode === 'positive' ? change > 0 : change < 0;
+                })
+                .sort((a, b) => mode === 'positive'
+                    ? Number(b.latest_rank_change || 0) - Number(a.latest_rank_change || 0)
+                    : Number(a.latest_rank_change || 0) - Number(b.latest_rank_change || 0))
+                .slice(0, 5);
+
+            if (filtered.length === 0) {
+                return `
+                    <div class="rank-class-card">
+                        <h3>${className}</h3>
+                        <div class="rank-class-empty">暂无符合条件的数据</div>
+                    </div>
+                `;
+            }
+
+            const listHtml = filtered.map(student => {
+                const change = Number(student.latest_rank_change || 0);
+                const sign = change > 0 ? '+' : '';
+                const classNameText = mode === 'positive' ? 'positive' : 'negative';
+                return `
+                    <li>
+                        <span>${student.name}</span>
+                        <span class="${classNameText}">${sign}${change}</span>
+                    </li>
+                `;
+            }).join('');
+
+            return `
+                <div class="rank-class-card">
+                    <h3>${className}</h3>
+                    <ul>${listHtml}</ul>
+                </div>
+            `;
+        });
+
+    return `<div class="rank-class-grid">${classCards.join('')}</div>`;
+}
+
+function closeModal() {
+    const overlay = document.getElementById('modalOverlay');
+    overlay.classList.add('hidden');
+    document.getElementById('modalDetailContainer').innerHTML = '';
+    if (modalChart) {
+        modalChart.dispose();
+        modalChart = null;
+    }
 }

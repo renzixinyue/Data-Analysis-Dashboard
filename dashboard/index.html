@@ -31,11 +31,17 @@
             <!-- Left Panel -->
             <section class="panel left-panel">
                 <div class="card">
-                    <h2>总体概况 (总分分布)</h2>
+                    <div class="card-title-row">
+                        <h2>总体概况 (总分分布)</h2>
+                        <button class="card-action-btn" data-modal-chart="scoreDistChart" data-modal-title="总体概况 (总分分布)">放大</button>
+                    </div>
                     <div id="scoreDistChart" class="chart-container"></div>
                 </div>
                 <div class="card">
-                    <h2>学科平均分对比</h2>
+                    <div class="card-title-row">
+                        <h2>学科平均分对比</h2>
+                        <button class="card-action-btn" data-modal-chart="subjectAvgChart" data-modal-title="学科平均分对比">放大</button>
+                    </div>
                     <div id="subjectAvgChart" class="chart-container"></div>
                 </div>
             </section>
@@ -90,19 +96,39 @@
             <!-- Right Panel -->
             <section class="panel right-panel">
                 <div class="card">
-                    <h2>班级平均分对比</h2>
+                    <div class="card-title-row">
+                        <h2>班级平均分对比</h2>
+                        <button class="card-action-btn" data-modal-chart="classAvgChart" data-modal-title="班级平均分对比">放大</button>
+                    </div>
                     <div id="classAvgChart" class="chart-container"></div>
                 </div>
                 <div class="card">
-                    <h2>进步榜 (Top 5)</h2>
+                    <div class="card-title-row">
+                        <h2>进步榜 (Top 5)</h2>
+                        <button class="card-action-btn" data-rank-mode="positive">查看各班</button>
+                    </div>
                     <ul id="topImproversList" class="rank-list"></ul>
                 </div>
                 <div class="card">
-                    <h2>退步榜 (Bottom 5)</h2>
+                    <div class="card-title-row">
+                        <h2>退步榜 (Bottom 5)</h2>
+                        <button class="card-action-btn" data-rank-mode="negative">查看各班</button>
+                    </div>
                     <ul id="bottomImproversList" class="rank-list"></ul>
                 </div>
             </section>
         </main>
+    </div>
+
+    <div id="modalOverlay" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 id="modalTitle">详情</h2>
+                <button id="modalCloseBtn" class="modal-close-btn">关闭</button>
+            </div>
+            <div id="modalChartContainer" class="modal-chart hidden"></div>
+            <div id="modalDetailContainer" class="modal-detail hidden"></div>
+        </div>
     </div>
 
     <script src="assets/js/main.js"></script>

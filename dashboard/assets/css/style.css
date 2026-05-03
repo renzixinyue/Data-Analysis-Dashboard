@@ -75,6 +75,35 @@ h1 {
     padding-bottom: 8px;
 }
 
+.card-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.card-title-row h2 {
+    flex: 1;
+    margin-bottom: 10px;
+}
+
+.card-action-btn,
+.modal-close-btn {
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    color: #334155;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.card-action-btn:hover,
+.modal-close-btn:hover {
+    background: #e2e8f0;
+}
+
 .chart-container {
     flex: 1;
     min-height: 200px;
@@ -209,4 +238,102 @@ h1 {
     border: none;
     box-shadow: none;
     padding: 0;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 24px;
+    box-sizing: border-box;
+}
+
+.modal-card {
+    width: min(1200px, 92vw);
+    max-height: 88vh;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 20px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 20px;
+    color: #0f172a;
+}
+
+.modal-chart {
+    width: 100%;
+    height: min(70vh, 720px);
+    padding: 16px 20px 20px;
+    box-sizing: border-box;
+}
+
+.modal-detail {
+    padding: 20px;
+    overflow: auto;
+    max-height: calc(88vh - 72px);
+}
+
+.rank-class-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+}
+
+.rank-class-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 14px;
+}
+
+.rank-class-card h3 {
+    margin: 0 0 10px;
+    font-size: 15px;
+    color: #1e293b;
+}
+
+.rank-class-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.rank-class-card li {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px dashed #dbe4ee;
+    font-size: 13px;
+}
+
+.rank-class-card li:last-child {
+    border-bottom: none;
+}
+
+.rank-class-empty {
+    color: #64748b;
+    font-size: 13px;
 }
