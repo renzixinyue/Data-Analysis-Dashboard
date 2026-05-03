@@ -33,6 +33,7 @@ def convert_to_json():
         return
 
     exams_df = exams_df.sort_values("order").reset_index(drop=True)
+    exams_df = exams_df.replace({np.nan: None})
     exams = exams_df[["order", "exam_key", "exam_name", "source_file"]].to_dict(orient="records")
 
     score_distribution = {}
@@ -51,6 +52,8 @@ def convert_to_json():
     prev_rank_col = f"总分__联考排名__{previous_exam['exam_key']}"
     compare_df = students_df.copy()
     compare_df["rank_change"] = compare_df[prev_rank_col] - compare_df[latest_rank_col]
+    compare_df = compare_df.dropna(subset=["rank_change"])
+
     top_improvers = (
         compare_df.nlargest(5, "rank_change")[["Display_Name", "Display_Class", "rank_change"]]
         .rename(columns={"Display_Name": "name", "Display_Class": "class"})
@@ -109,6 +112,9 @@ def convert_to_json():
             "subjects": subject_stats,
             "latest_rank_change": latest_change,
         })
+
+    subject_df = subject_df.replace({np.nan: None})
+    class_df = class_df.replace({np.nan: None})
 
     final_data = {
         "exams": exams,
