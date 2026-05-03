@@ -1,172 +1,231 @@
 import pandas as pd
-import numpy as np
 
-def load_data(filepath, exam_suffix):
-    print(f"Loading {filepath}...")
-    try:
-        df = pd.read_excel(filepath, header=[1, 2])
-    except Exception as e:
-        print(f"Error reading {filepath}: {e}")
-        return None
-    
-    # Flatten columns
-    new_columns = []
+
+EXAMS = [
+    {"key": "seven_up_monthly", "name": "七上第一次月考", "file": "diyiciyuekao.xlsx"},
+    {"key": "seven_up_midterm", "name": "七上期中", "file": "qizhognchengji.xlsx"},
+    {"key": "seven_down_midterm", "name": "七下期中", "file": "2026年七下期中考试排行榜.xlsx"},
+]
+
+META_MAP = {
+    "姓名": "Name",
+    "学号": "StudentID",
+    "考号": "ExamID",
+    "班级": "Class",
+    "学校": "School",
+    "标签": "Tag",
+}
+
+META_FIELDS = {"Name", "StudentID", "ExamID", "Class", "School", "Tag"}
+RANK_METRIC = "学校排名"
+JOINT_RANK_METRIC = "联考排名"
+
+
+def flatten_columns(df):
+    columns = []
     last_subject = None
-    
-    for i in range(len(df.columns)):
-        col = df.columns[i]
-        subject = str(col[0]).strip()
-        metric = str(col[1]).strip()
-        
+    for col in df.columns:
+        subject = str(col[0]).replace(" ", "").replace("\u3000", "").strip()
+        metric = str(col[1]).replace(" ", "").replace("\u3000", "").strip()
         if "Unnamed" in subject or subject == "nan":
             subject = last_subject
         else:
             last_subject = subject
-            
         if "Unnamed" in metric or metric == "nan":
             metric = ""
-            
-        if subject and metric:
-            new_columns.append(f"{subject}_{metric}")
-        elif subject:
-            new_columns.append(subject)
-        else:
-            new_columns.append(metric) 
-            
-    df.columns = new_columns
-    
-    # Clean up column names and map to standard names
-    col_map = {}
-    
-    for col in df.columns:
-        new_name = col
-        if "姓名" in col: new_name = "Name"
-        elif "学号" in col: new_name = "StudentID"
-        elif "考号" in col: new_name = "ExamID"
-        elif "班级" in col and "排名" not in col: new_name = "Class"
-        elif "总分" in col and "排名" not in col: new_name = "Total_Score"
-        elif "总分" in col and "联考排名" in col: new_name = "Total_Joint_Rank"
-        elif "总分" in col and "学校排名" in col: new_name = "Total_School_Rank"
-        elif "总分" in col and "班级排名" in col: new_name = "Total_Class_Rank"
-        
-        col_map[col] = new_name
-    
-    df = df.rename(columns=col_map)
-    
-    # Remove rows where Name or StudentID is missing
-    df = df.dropna(subset=['Name', 'StudentID'])
-    
-    # Convert numeric columns
-    for col in df.columns:
-        if "Score" in col or "Rank" in col or "分数" in col or "排名" in col:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-            
-    # Add suffix to all columns except join keys (StudentID)
-    # We WILL suffix Name and Class to distinguish them
-    cols_to_rename = {col: f"{col}_{exam_suffix}" for col in df.columns if col != 'StudentID'}
-    df = df.rename(columns=cols_to_rename)
-    
+        columns.append(f"{subject}_{metric}" if subject and metric else (subject or metric))
+    df.columns = columns
     return df
 
-def analyze():
-    # Load data
-    df_monthly = load_data('diyiciyuekao.xlsx', 'Monthly')
-    df_midterm = load_data('qizhognchengji.xlsx', 'Midterm')
-    
-    if df_monthly is None or df_midterm is None:
-        return
 
-    # Merge data on StudentID
-    print("Merging data...")
-    merged_df = pd.merge(df_monthly, df_midterm, on='StudentID', how='inner')
-    
-    # Calculate Deltas
-    # Total Score
-    if 'Total_Score_Midterm' in merged_df.columns and 'Total_Score_Monthly' in merged_df.columns:
-        merged_df['Delta_Total_Score'] = merged_df['Total_Score_Midterm'] - merged_df['Total_Score_Monthly']
-    
-    # School Rank Improvement (Monthly - Midterm)
-    if 'Total_School_Rank_Monthly' in merged_df.columns and 'Total_School_Rank_Midterm' in merged_df.columns:
-        merged_df['Improvement_School_Rank'] = merged_df['Total_School_Rank_Monthly'] - merged_df['Total_School_Rank_Midterm']
-    
-    if 'Total_Class_Rank_Monthly' in merged_df.columns and 'Total_Class_Rank_Midterm' in merged_df.columns:
-        merged_df['Improvement_Class_Rank'] = merged_df['Total_Class_Rank_Monthly'] - merged_df['Total_Class_Rank_Midterm']
-    
-    # Subject Analysis
-    subjects = ['语文', '数学', '英语', '生物', '道德与法治', '历史', '地理']
-    
-    for sub in subjects:
-        # Note: In load_data, we kept original subject names like "语文_分数"
-        # So they became "语文_分数_Monthly"
-        score_col_monthly = f"{sub}_分数_Monthly"
-        score_col_midterm = f"{sub}_分数_Midterm"
-        
-        if score_col_monthly in merged_df.columns and score_col_midterm in merged_df.columns:
-            merged_df[f'Delta_{sub}'] = merged_df[score_col_midterm] - merged_df[score_col_monthly]
+def normalize_student_id(series):
+    return (
+        series.astype(str)
+        .str.strip()
+        .str.replace(r"\.0$", "", regex=True)
+    )
 
-    # Reorder columns
-    # We want Name_Midterm to be the main Name column
-    basic_cols = ['StudentID', 'Name_Midterm', 'Class_Midterm', 'Name_Monthly', 'Class_Monthly']
-    score_cols = ['Total_Score_Monthly', 'Total_Score_Midterm', 'Delta_Total_Score', 
-                  'Total_School_Rank_Monthly', 'Total_School_Rank_Midterm', 'Improvement_School_Rank',
-                  'Total_Class_Rank_Monthly', 'Total_Class_Rank_Midterm', 'Improvement_Class_Rank']
-    
-    # Filter valid columns
-    final_cols = [c for c in basic_cols if c in merged_df.columns] + \
-                 [c for c in score_cols if c in merged_df.columns] + \
-                 [c for c in merged_df.columns if c not in basic_cols and c not in score_cols]
-                 
-    merged_df = merged_df[final_cols]
-    
-    # Class Level Analysis
-    print("Performing Class Analysis...")
-    if 'Class_Midterm' in merged_df.columns:
-        class_group = merged_df.groupby('Class_Midterm')
-        
-        agg_dict = {}
-        if 'Total_Score_Monthly' in merged_df.columns: agg_dict['Total_Score_Monthly'] = 'mean'
-        if 'Total_Score_Midterm' in merged_df.columns: agg_dict['Total_Score_Midterm'] = 'mean'
-        if 'Delta_Total_Score' in merged_df.columns: agg_dict['Delta_Total_Score'] = 'mean'
-        if 'Improvement_School_Rank' in merged_df.columns: agg_dict['Improvement_School_Rank'] = 'mean'
-        
-        class_summary = class_group.agg(agg_dict).reset_index()
-        
-        rename_dict = {
-            'Total_Score_Monthly': 'Avg_Score_Monthly',
-            'Total_Score_Midterm': 'Avg_Score_Midterm',
-            'Delta_Total_Score': 'Avg_Score_Change',
-            'Improvement_School_Rank': 'Avg_Rank_Improvement'
-        }
-        class_summary = class_summary.rename(columns=rename_dict)
-    else:
-        class_summary = pd.DataFrame()
 
-    # Subject Level Analysis (Global)
-    print("Performing Subject Analysis...")
-    subject_summary_data = []
-    for sub in subjects:
-        score_col_monthly = f"{sub}_分数_Monthly"
-        score_col_midterm = f"{sub}_分数_Midterm"
-        if score_col_monthly in merged_df.columns and score_col_midterm in merged_df.columns:
-            mean_monthly = merged_df[score_col_monthly].mean()
-            mean_midterm = merged_df[score_col_midterm].mean()
-            subject_summary_data.append({
-                'Subject': sub,
-                'Avg_Score_Monthly': mean_monthly,
-                'Avg_Score_Midterm': mean_midterm,
-                'Delta': mean_midterm - mean_monthly
+def load_exam(exam):
+    print(f"Loading {exam['file']} ...")
+    df = pd.read_excel(exam["file"], header=[1, 2])
+    df = flatten_columns(df)
+
+    renamed = {}
+    subject_order = []
+
+    for col in df.columns:
+        if col in META_MAP:
+            renamed[col] = META_MAP[col]
+            continue
+
+        if "_" not in col:
+            renamed[col] = col
+            continue
+
+        subject, metric = col.split("_", 1)
+        if subject not in META_MAP and subject not in subject_order and subject != "总分":
+            subject_order.append(subject)
+        renamed[col] = f"{subject}__{metric}"
+
+    df = df.rename(columns=renamed)
+    df = df.dropna(subset=["Name", "StudentID"])
+    df["StudentID"] = normalize_student_id(df["StudentID"])
+
+    for col in df.columns:
+        if col not in META_FIELDS and col != "StudentID":
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    rank_subjects = ["总分"] + subject_order
+    for subject in rank_subjects:
+        score_col = f"{subject}__分数"
+        joint_rank_col = f"{subject}__{JOINT_RANK_METRIC}"
+        if score_col in df.columns and joint_rank_col not in df.columns:
+            df[joint_rank_col] = (
+                df[score_col]
+                .rank(ascending=False, method="min")
+            )
+
+    renamed_for_exam = {}
+    for col in df.columns:
+        if col == "StudentID":
+            continue
+        renamed_for_exam[col] = f"{col}__{exam['key']}"
+
+    df = df.rename(columns=renamed_for_exam)
+    return df, subject_order
+
+
+def first_non_null(row, columns):
+    for col in columns:
+        if col in row and pd.notna(row[col]) and str(row[col]).strip():
+            return row[col]
+    return ""
+
+
+def build_outputs():
+    exam_frames = []
+    subject_order = []
+
+    for exam in EXAMS:
+        exam_df, exam_subjects = load_exam(exam)
+        exam_frames.append(exam_df)
+        for subject in exam_subjects:
+            if subject not in subject_order:
+                subject_order.append(subject)
+
+    merged_df = exam_frames[0]
+    for exam_df in exam_frames[1:]:
+        merged_df = pd.merge(merged_df, exam_df, on="StudentID", how="inner")
+    merged_df = merged_df.copy()
+
+    name_cols = [f"Name__{exam['key']}" for exam in reversed(EXAMS)]
+    class_cols = [f"Class__{exam['key']}" for exam in reversed(EXAMS)]
+    school_cols = [f"School__{exam['key']}" for exam in reversed(EXAMS)]
+
+    merged_df["Display_Name"] = merged_df.apply(lambda row: first_non_null(row, name_cols), axis=1)
+    merged_df["Display_Class"] = merged_df.apply(lambda row: first_non_null(row, class_cols), axis=1)
+    merged_df["Display_School"] = merged_df.apply(lambda row: first_non_null(row, school_cols), axis=1)
+
+    latest_score_col = f"总分__分数__{EXAMS[-1]['key']}"
+    if latest_score_col in merged_df.columns:
+        merged_df = merged_df.sort_values(latest_score_col, ascending=False)
+
+    overall_rows = []
+    class_rows = []
+    subject_rows = []
+
+    for order, exam in enumerate(EXAMS, start=1):
+        key = exam["key"]
+        total_score_col = f"总分__分数__{key}"
+        total_rank_col = f"总分__{JOINT_RANK_METRIC}__{key}"
+        class_col = f"Class__{key}"
+
+        overall_rows.append({
+            "order": order,
+            "exam_key": key,
+            "exam_name": exam["name"],
+            "source_file": exam["file"],
+            "rank_metric": JOINT_RANK_METRIC,
+            "student_count": int(merged_df[total_score_col].notna().sum()) if total_score_col in merged_df.columns else 0,
+            "avg_total_score": merged_df[total_score_col].mean() if total_score_col in merged_df.columns else None,
+            "avg_total_rank": merged_df[total_rank_col].mean() if total_rank_col in merged_df.columns else None,
+        })
+
+        if class_col in merged_df.columns and total_score_col in merged_df.columns:
+            class_agg = (
+                merged_df.groupby(class_col, dropna=True)
+                .agg(
+                    avg_total_score=(total_score_col, "mean"),
+                    avg_total_rank=(total_rank_col, "mean") if total_rank_col in merged_df.columns else (total_score_col, "size"),
+                    student_count=(total_score_col, "count"),
+                )
+                .reset_index()
+                .rename(columns={class_col: "class_name"})
+            )
+            for _, row in class_agg.iterrows():
+                class_rows.append({
+                    "exam_key": key,
+                    "exam_name": exam["name"],
+                    "class_name": row["class_name"],
+                    "avg_total_score": row["avg_total_score"],
+                    "avg_total_rank": row["avg_total_rank"],
+                    "student_count": int(row["student_count"]),
+                })
+
+        for subject in subject_order:
+            score_col = f"{subject}__分数__{key}"
+            rank_col = f"{subject}__{JOINT_RANK_METRIC}__{key}"
+            if score_col not in merged_df.columns:
+                continue
+            subject_rows.append({
+                "exam_key": key,
+                "exam_name": exam["name"],
+                "subject": subject,
+                "avg_score": merged_df[score_col].mean(),
+                "avg_rank": merged_df[rank_col].mean() if rank_col in merged_df.columns else None,
             })
-    subject_summary = pd.DataFrame(subject_summary_data)
 
-    # Write to Excel
-    output_file = 'analysis_result.xlsx'
-    print(f"Writing results to {output_file}...")
+    exams_df = pd.DataFrame(overall_rows)
+    class_df = pd.DataFrame(class_rows)
+    subject_df = pd.DataFrame(subject_rows)
+
+    preferred_cols = ["StudentID", "Display_Name", "Display_Class", "Display_School"]
+    for exam in EXAMS:
+        key = exam["key"]
+        preferred_cols.extend(
+            [
+                f"Name__{key}",
+                f"Class__{key}",
+                f"School__{key}",
+                f"总分__分数__{key}",
+                f"总分__{JOINT_RANK_METRIC}__{key}",
+            ]
+        )
+        for subject in subject_order:
+            preferred_cols.extend(
+                [
+                    f"{subject}__分数__{key}",
+                    f"{subject}__{JOINT_RANK_METRIC}__{key}",
+                ]
+            )
+
+    remaining = [col for col in merged_df.columns if col not in preferred_cols]
+    student_df = merged_df[[col for col in preferred_cols if col in merged_df.columns] + remaining]
+    return exams_df, student_df, class_df, subject_df
+
+
+def analyze():
+    exams_df, student_df, class_df, subject_df = build_outputs()
+    output_file = "analysis_result.xlsx"
+    print(f"Writing results to {output_file} ...")
     with pd.ExcelWriter(output_file) as writer:
-        merged_df.to_excel(writer, sheet_name='Student_Comparison', index=False)
-        class_summary.to_excel(writer, sheet_name='Class_Summary', index=False)
-        subject_summary.to_excel(writer, sheet_name='Subject_Summary', index=False)
-        
+        exams_df.to_excel(writer, sheet_name="Exams_Metadata", index=False)
+        student_df.to_excel(writer, sheet_name="Student_Comparison", index=False)
+        class_df.to_excel(writer, sheet_name="Class_Summary", index=False)
+        subject_df.to_excel(writer, sheet_name="Subject_Summary", index=False)
     print("Analysis complete!")
+
 
 if __name__ == "__main__":
     analyze()
