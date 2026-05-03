@@ -134,11 +134,19 @@ function renderClassChart(data) {
             show: true,
             position: 'top',
             color: '#333',
-            formatter: params => params.value == null ? '' : formatFixed(params.value, 2)
+            formatter: params => {
+                const value = typeof params.value === 'object' ? params.value.value : params.value;
+                const rank = params.data && typeof params.data === 'object' ? params.data.classRank : null;
+                if (value == null) return '';
+                return rank ? `${formatFixed(value, 2)}\n第${rank}名` : formatFixed(value, 2);
+            }
         },
         data: classes.map(className => {
             const found = data.class_stats.find(item => item.exam_key === exam.exam_key && item.class_name === className);
-            return found ? found.avg_total_score : null;
+            return found ? {
+                value: found.avg_total_score,
+                classRank: found.class_rank ?? null,
+            } : null;
         })
     }));
 
@@ -150,7 +158,13 @@ function renderClassChart(data) {
             formatter: params => {
                 let html = `${params[0].axisValue}<br/>`;
                 params.forEach(param => {
-                    html += `${param.marker}${param.seriesName}: ${formatFixed(param.value, 2)}<br/>`;
+                    const value = typeof param.value === 'object' ? param.value.value : param.value;
+                    const rank = param.data && typeof param.data === 'object' ? param.data.classRank : null;
+                    html += `${param.marker}${param.seriesName}: ${formatFixed(value, 2)}`;
+                    if (rank) {
+                        html += `，第${rank}名`;
+                    }
+                    html += '<br/>';
                 });
                 return html;
             }

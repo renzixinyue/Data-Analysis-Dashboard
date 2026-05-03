@@ -6,6 +6,9 @@ EXAMS = [
     {"key": "seven_up_midterm", "name": "七上期中", "file": "qizhognchengji.xlsx"},
     {"key": "seven_down_midterm", "name": "七下期中", "file": "2026年七下期中考试排行榜.xlsx"},
 ]
+CLASS_AVG_FILES = {
+    "seven_down_midterm": "2026年七下期中考试班级平均分.xlsx",
+}
 
 META_MAP = {
     "姓名": "Name",
@@ -103,6 +106,33 @@ def first_non_null(row, columns):
     return ""
 
 
+def load_official_class_summary(exam):
+    avg_file = CLASS_AVG_FILES.get(exam["key"])
+    if not avg_file:
+        return None
+
+    df = pd.read_excel(avg_file, sheet_name="平均分", header=[1, 2])
+    df = df.iloc[1:].copy()
+    df.columns = [
+        "class_name",
+        "applicant_count",
+        "student_count",
+        "teacher_name",
+        "avg_total_score",
+        "avg_score_rate",
+        "class_rank",
+        "avg_score_diff",
+        "score_std",
+        "max_score",
+        "min_score",
+    ]
+    df = df[df["class_name"].astype(str).str.fullmatch(r"\d+")].copy()
+    df["class_name"] = df["class_name"].astype(str).str.strip()
+    for col in ["student_count", "avg_total_score", "class_rank"]:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+    return df[["class_name", "avg_total_score", "student_count", "class_rank"]]
+
+
 def build_outputs():
     exam_frames = []
     subject_order = []
@@ -153,16 +183,25 @@ def build_outputs():
         })
 
         if class_col in merged_df.columns and total_score_col in merged_df.columns:
-            class_agg = (
-                merged_df.groupby(class_col, dropna=True)
-                .agg(
-                    avg_total_score=(total_score_col, "mean"),
-                    avg_total_rank=(total_rank_col, "mean") if total_rank_col in merged_df.columns else (total_score_col, "size"),
-                    student_count=(total_score_col, "count"),
+            class_agg = load_official_class_summary(exam)
+            if class_agg is None:
+                class_agg = (
+                    merged_df.groupby(class_col, dropna=True)
+                    .agg(
+                        avg_total_score=(total_score_col, "mean"),
+                        avg_total_rank=(total_rank_col, "mean") if total_rank_col in merged_df.columns else (total_score_col, "size"),
+                        student_count=(total_score_col, "count"),
+                    )
+                    .reset_index()
+                    .rename(columns={class_col: "class_name"})
                 )
-                .reset_index()
-                .rename(columns={class_col: "class_name"})
-            )
+                class_agg["class_rank"] = (
+                    class_agg["avg_total_score"]
+                    .rank(ascending=False, method="min")
+                )
+            else:
+                class_agg["avg_total_rank"] = None
+
             for _, row in class_agg.iterrows():
                 class_rows.append({
                     "exam_key": key,
@@ -171,6 +210,7 @@ def build_outputs():
                     "avg_total_score": row["avg_total_score"],
                     "avg_total_rank": row["avg_total_rank"],
                     "student_count": int(row["student_count"]),
+                    "class_rank": int(row["class_rank"]) if pd.notna(row["class_rank"]) else None,
                 })
 
         for subject in subject_order:
